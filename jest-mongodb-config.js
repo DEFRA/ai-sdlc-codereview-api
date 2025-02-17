@@ -5,7 +5,7 @@ export default {
     },
     autoStart: false,
     instance: {
-      dbName: 'cdp-node-backend-template'
+      dbName: 'ai-sdlc-codereview-api'
     }
   },
   mongoURLEnvName: 'MONGO_URI',
