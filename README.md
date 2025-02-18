@@ -1,224 +1,120 @@
 # ai-sdlc-codereview-api
 
-Core delivery platform Node.js Backend Template.
+Core Delivery Platform Python Backend Template.
 
-- [Requirements](#requirements)
-  - [Node.js](#nodejs)
-- [Local development](#local-development)
-  - [Setup](#setup)
-  - [Development](#development)
-  - [Testing](#testing)
-  - [Production](#production)
-  - [Npm scripts](#npm-scripts)
-  - [Update dependencies](#update-dependencies)
-  - [Formatting](#formatting)
-    - [Windows prettier issue](#windows-prettier-issue)
-- [API endpoints](#api-endpoints)
-- [Development helpers](#development-helpers)
-  - [MongoDB Locks](#mongodb-locks)
-- [Docker](#docker)
-  - [Development image](#development-image)
-  - [Production image](#production-image)
-  - [Docker Compose](#docker-compose)
-  - [Dependabot](#dependabot)
-  - [SonarCloud](#sonarcloud)
-- [Licence](#licence)
-  - [About the licence](#about-the-licence)
+- [ai-sdlc-codereview-api](#ai-sdlc-codereview-api)
+  - [Requirements](#requirements)
+    - [Python](#python)
+    - [Docker](#docker)
+  - [Local development](#local-development)
+    - [Setup](#setup)
+    - [Development](#development)
+    - [Testing](#testing)
+    - [Production](#production)
+  - [API endpoints](#api-endpoints)
+  - [Custom Cloudwatch Metrics](#custom-cloudwatch-metrics)
+  - [Pipelines](#pipelines)
+    - [Dependabot](#dependabot)
+    - [SonarCloud](#sonarcloud)
+  - [Licence](#licence)
+    - [About the licence](#about-the-licence)
 
 ## Requirements
 
-### Node.js
+### Python
 
-Please install [Node.js](http://nodejs.org/) `>= v18` and [npm](https://nodejs.org/) `>= v9`. You will find it
-easier to use the Node Version Manager [nvm](https://github.com/creationix/nvm)
+Please install python `>= 3.12` and [configure your python virtual environment](https://fastapi.tiangolo.com/virtual-environments/#create-a-virtual-environment):
 
-To use the correct version of Node.js for this application, via nvm:
+```python
+# create the virtual environment
+python -m venv .venv
 
-```bash
-cd ai-sdlc-codereview-api
-nvm use
+# activate the the virtual environment in the command line
+source .venv/bin/activate
+
+# update pip
+python -m pip install --upgrade pip 
+
+# install the dependencies
+pip install -r requirements-dev.txt
 ```
+
+This opinionated template uses the [`Fast API`](https://fastapi.tiangolo.com/) Python API framework.
+
+This and all other runtime python libraries must reside in `requirements.txt`
+
+Other non-runtime dependencies used for dev & test must reside in `requirements-dev.txt`
+
+### Docker
+
+This repository uses Docker throughput its lifecycle i.e. both for local development and the environments. A benefit of this is that environment variables & secrets are managed consistently throughout the lifecycle
+
+See the `Dockerfile` and `compose.yml` for details
 
 ## Local development
 
 ### Setup
 
-Install application dependencies:
+Libraries: Ensure the python virtual environment is configured and libraries are installed using `requirements-dev.txt`, [as above](#python)
 
-```bash
-npm install
-```
+Environment variables: `compose/aws.env`
+
+Secrets: `compose/secrets.env`. You need to create this, as it's excluded from version control.
 
 ### Development
 
-To run the application in `development` mode run:
+The app can be run locally using Docker compose.  This template contains a local environment with:
+
+- Localstack
+- MongoDB
+- This service
+  
+To run the application in development mode:
 
 ```bash
-npm run dev
+docker compose watch
 ```
 
 ### Testing
 
+Ensure the python virtual environment is configured and libraries are installed using `requirements-dev.txt`, [as above](#python)
+
+Testing follows the [FastApi documented approach](https://fastapi.tiangolo.com/tutorial/testing/); using pytest & starlette.
+
 To test the application run:
 
 ```bash
-npm run test
+pytest
 ```
 
 ### Production
 
-To mimic the application running in `production` mode locally run:
+To mimic the application running in `production mode locally run:
 
 ```bash
-npm start
+docker compose up --build -d
 ```
 
-### Npm scripts
-
-All available Npm scripts can be seen in [package.json](./package.json).
-To view them in your command line run:
+Stop the application with
 
 ```bash
-npm run
-```
-
-### Update dependencies
-
-To update dependencies use [npm-check-updates](https://github.com/raineorshine/npm-check-updates):
-
-> The following script is a good start. Check out all the options on
-> the [npm-check-updates](https://github.com/raineorshine/npm-check-updates)
-
-```bash
-ncu --interactive --format group
-```
-
-### Formatting
-
-#### Windows prettier issue
-
-If you are having issues with formatting of line breaks on Windows update your global git config by running:
-
-```bash
-git config --global core.autocrlf false
+docker compose down
 ```
 
 ## API endpoints
 
 | Endpoint             | Description                    |
 | :------------------- | :----------------------------- |
-| `GET: /health`       | Health                         |
-| `GET: /example    `  | Example API (remove as needed) |
-| `GET: /example/<id>` | Example API (remove as needed) |
+| `GET: /docs`         | Automatic API Swagger docs     |
+| `GET: /example`      | Simple example                 |
 
-## Development helpers
+## Custom Cloudwatch Metrics
 
-### MongoDB Locks
+Uses the [aws embedded metrics library](https://github.com/awslabs/aws-embedded-metrics-python). An example can be found in `metrics.py`
 
-If you require a write lock for Mongo you can acquire it via `server.locker` or `request.locker`:
+In order to make this library work in the environments, the environment variable `AWS_EMF_ENVIRONMENT=local` is set in the app config. This tells the library to use the local cloudwatch agent that has been configured in CDP, and uses the environment variables set up in CDP `AWS_EMF_AGENT_ENDPOINT`, `AWS_EMF_LOG_GROUP_NAME`, `AWS_EMF_LOG_STREAM_NAME`, `AWS_EMF_NAMESPACE`, `AWS_EMF_SERVICE_NAME`
 
-```javascript
-async function doStuff(server) {
-  const lock = await server.locker.lock('unique-resource-name')
-
-  if (!lock) {
-    // Lock unavailable
-    return
-  }
-
-  try {
-    // do stuff
-  } finally {
-    await lock.free()
-  }
-}
-```
-
-Keep it small and atomic.
-
-You may use **using** for the lock resource management.
-Note test coverage reports do not like that syntax.
-
-```javascript
-async function doStuff(server) {
-  await using lock = await server.locker.lock('unique-resource-name')
-
-  if (!lock) {
-    // Lock unavailable
-    return
-  }
-
-  // do stuff
-
-  // lock automatically released
-}
-```
-
-Helper methods are also available in `/src/helpers/mongo-lock.js`.
-
-### Proxy
-
-We are using forward-proxy which is set up by default. To make use of this: `import { fetch } from 'undici'` then because of the `setGlobalDispatcher(new ProxyAgent(proxyUrl))` calls will use the ProxyAgent Dispatcher
-
-If you are not using Wreck, Axios or Undici or a similar http that uses `Request`. Then you may have to provide the proxy dispatcher:
-
-To add the dispatcher to your own client:
-
-```javascript
-import { ProxyAgent } from 'undici'
-
-return await fetch(url, {
-  dispatcher: new ProxyAgent({
-    uri: proxyUrl,
-    keepAliveTimeout: 10,
-    keepAliveMaxTimeout: 10
-  })
-})
-```
-
-## Docker
-
-### Development image
-
-Build:
-
-```bash
-docker build --target development --no-cache --tag ai-sdlc-codereview-api:development .
-```
-
-Run:
-
-```bash
-docker run -e PORT=3001 -p 3001:3001 ai-sdlc-codereview-api:development
-```
-
-### Production image
-
-Build:
-
-```bash
-docker build --no-cache --tag ai-sdlc-codereview-api .
-```
-
-Run:
-
-```bash
-docker run -e PORT=3001 -p 3001:3001 ai-sdlc-codereview-api
-```
-
-### Docker Compose
-
-A local environment with:
-
-- Localstack for AWS services (S3, SQS)
-- Redis
-- MongoDB
-- This service.
-- A commented out frontend example.
-
-```bash
-docker compose up --build -d
-```
+## Pipelines
 
 ### Dependabot
 

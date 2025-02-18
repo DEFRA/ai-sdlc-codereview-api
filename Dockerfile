@@ -1,41 +1,51 @@
-ARG PARENT_VERSION=latest-22
-ARG PORT=3000
-ARG PORT_DEBUG=9229
+# syntax=docker/dockerfile:1
 
-FROM defradigital/node-development:${PARENT_VERSION} AS development
-ARG PARENT_VERSION
-LABEL uk.gov.defra.ffc.parent-image=defradigital/node-development:${PARENT_VERSION}
+# Based on Docker's Python guide https://docs.docker.com/language/python/
 
-ARG PORT
-ARG PORT_DEBUG
-ENV PORT=${PORT}
-EXPOSE ${PORT} ${PORT_DEBUG}
+ARG PYTHON_VERSION=3.12.4
+FROM python:${PYTHON_VERSION}-slim as base
 
-COPY --chown=node:node package*.json ./
-RUN npm install
-COPY --chown=node:node . .
-RUN npm run build
+# Prevents Python from writing pyc files.
+ENV PYTHONDONTWRITEBYTECODE=1
 
-CMD [ "npm", "run", "docker:dev" ]
-
-FROM defradigital/node:${PARENT_VERSION} AS production
-ARG PARENT_VERSION
-LABEL uk.gov.defra.ffc.parent-image=defradigital/node:${PARENT_VERSION}
+# Keeps Python from buffering stdout and stderr to avoid situations where
+# the application crashes without emitting any logs due to buffering.
+ENV PYTHONUNBUFFERED=1
 
 # Add curl to template.
 # CDP PLATFORM HEALTHCHECK REQUIREMENT
-USER root
-RUN apk update && \
-    apk add curl
-USER node
+RUN apt-get update && apt-get install curl -y
 
-COPY --from=development /home/node/package*.json ./
-COPY --from=development /home/node/.server ./.server/
+WORKDIR /app
 
-RUN npm ci --omit=dev
+# Create a non-privileged user that the app will run under.
+# See https://docs.docker.com/go/dockerfile-user-best-practices/
+ARG UID=10001
+RUN adduser \
+  --disabled-password \
+  --gecos "" \
+  --home "/nonexistent" \
+  --shell "/sbin/nologin" \
+  --no-create-home \
+  --uid "${UID}" \
+  appuser
 
-ARG PORT
-ENV PORT=${PORT}
-EXPOSE ${PORT}
+# Download dependencies as a separate step to take advantage of Docker's caching.
+# Leverage a cache mount to /root/.cache/pip to speed up subsequent builds.
+# Leverage a bind mount to requirements.txt to avoid having to copy them into
+# into this layer.
+RUN --mount=type=cache,target=/root/.cache/pip \
+  --mount=type=bind,source=requirements.txt,target=requirements.txt \
+  python -m pip install -r requirements.txt
 
-CMD [ "node", "." ]
+# Switch to the non-privileged user to run the application.
+USER appuser
+
+# Copy the source code into the container.
+COPY . .
+
+# Expose the port that the application listens on.
+EXPOSE 8085
+
+# Run the application.
+CMD ["uvicorn", "app.main:app", "--host=0.0.0.0", "--port=8085", "--log-config", "logging.yaml", "--no-access-log"]
