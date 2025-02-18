@@ -12,14 +12,15 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # the application crashes without emitting any logs due to buffering.
 ENV PYTHONUNBUFFERED=1
 
-# Add curl to template.
-# CDP PLATFORM HEALTHCHECK REQUIREMENT
-RUN apt-get update && apt-get install curl -y
+# Add curl and git to template.
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Create a non-privileged user that the app will run under.
-# See https://docs.docker.com/go/dockerfile-user-best-practices/
 ARG UID=10001
 RUN adduser \
   --disabled-password \
@@ -30,10 +31,10 @@ RUN adduser \
   --uid "${UID}" \
   appuser
 
+# Create logs directory with proper permissions before switching user
+RUN mkdir -p /app/logs && chmod 777 /app/logs
+
 # Download dependencies as a separate step to take advantage of Docker's caching.
-# Leverage a cache mount to /root/.cache/pip to speed up subsequent builds.
-# Leverage a bind mount to requirements.txt to avoid having to copy them into
-# into this layer.
 RUN --mount=type=cache,target=/root/.cache/pip \
   --mount=type=bind,source=requirements.txt,target=requirements.txt \
   python -m pip install -r requirements.txt

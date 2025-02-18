@@ -14,6 +14,7 @@ services:
     volumes:
       - "${TMPDIR:-/tmp}/localstack:/var/lib/localstack"
       - ./compose/start-localstack.sh:/etc/localstack/init/ready.d/start-localstack.sh
+      - ./logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "localhost:4566"]
       interval: 5s
@@ -48,9 +49,11 @@ services:
       mongodb:
         condition: service_started
     env_file:
+      - ".env"
       - "compose/aws.env"
       - "compose/secrets.env"
     environment:
+      ENVIRONMENT: local
       PORT: 8085
       LOCALSTACK_ENDPOINT: http://localstack:4566
       MONGO_URI: mongodb://mongodb:27017/
@@ -58,6 +61,8 @@ services:
       watch:
         - action: rebuild
           path: .
+    volumes:
+      - ./logs:/app/logs
     networks:
       - cdp-tenant
 
