@@ -3,15 +3,12 @@
 import asyncio
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 async def get_mongodb_client():
     """Get MongoDB client and database."""
-    mongo_uri = os.getenv("MONGO_URI")
-    database = os.getenv("MONGO_INITDB_DATABASE", "code_reviews")
+    # Use localhost when running script locally, mongodb when running in container
+    mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+    database = os.getenv("MONGO_DATABASE", "code_reviews")
     
     if not mongo_uri:
         print("Error: MONGO_URI environment variable is not set")

@@ -6,7 +6,6 @@ import argparse
 from datetime import datetime
 from bson import ObjectId
 from pymongo import MongoClient
-from dotenv import load_dotenv
 
 class MongoJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder for MongoDB data types."""
@@ -17,15 +16,15 @@ class MongoJSONEncoder(json.JSONEncoder):
             return str(obj)
         return super().default(obj)
 
-def get_db():
-    """Get MongoDB database connection."""
-    load_dotenv()
-    client = MongoClient(os.getenv("MONGO_URI"))
-    return client[os.getenv("MONGO_INITDB_DATABASE")]
+def get_database():
+    # Use localhost when running script locally, mongodb when running in container
+    client = MongoClient("mongodb://localhost:27017/")
+    database = os.getenv("MONGO_DATABASE", "code_reviews")
+    return client[database]
 
 def dump_database(test_data_dir: str = "test_data"):
     """Dump the current state of MongoDB to the test_data directory."""
-    db = get_db()
+    db = get_database()
     
     # Create dumps directory if it doesn't exist
     dumps_dir = os.path.join(test_data_dir, "mongodb_dumps")
@@ -79,7 +78,7 @@ def restore_database(dump_file: str = None):
         dump_data = json.load(f)
     
     # Clear and restore database
-    db = get_db()
+    db = get_database()
     for collection_name in dump_data:
         # Clear existing data
         db[collection_name].delete_many({})
