@@ -1,9 +1,12 @@
 """Database initialization module."""
-import logging
 from datetime import datetime, UTC
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.config.config import settings
 from app.models.code_review import ReviewStatus
+from app.common.ssl_context import create_ssl_context
+from app.common.logging import get_logger
+
+logger = get_logger(__name__)
 
 # MongoDB validation schemas
 classifications_schema = {
@@ -170,7 +173,23 @@ code_review_schema = {
 
 async def init_database():
     """Initialize database with schema validation."""
-    client = AsyncIOMotorClient(settings.MONGO_URI)
+    # Get SSL context if secure context is enabled
+    ssl_context = create_ssl_context()
+    
+    # Base connection options
+    connection_options = {
+        "retryWrites": True,
+        "readPreference": "primary"
+    }
+    
+    # Add SSL context if available
+    if ssl_context:
+        logger.info("Using custom SSL context with provided certificates")
+        connection_options["ssl_context"] = ssl_context
+    else:
+        logger.info("Using default SSL configuration")
+    
+    client = AsyncIOMotorClient(settings.MONGO_URI, **connection_options)
     db = client.code_reviews
 
     # Create collections with schema validation
