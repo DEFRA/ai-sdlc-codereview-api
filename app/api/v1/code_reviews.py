@@ -7,12 +7,12 @@ from app.models.code_review import (
     CodeReviewList,
     ReviewStatus
 )
-from app.utils.logging_utils import setup_logger
+from app.common.logging import get_logger
 from app.services.code_review_service import CodeReviewService
 from app.api.dependencies import get_code_review_service
 from app.utils.id_validation import ensure_object_id
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 router = APIRouter()
 
 @router.post("/code-reviews", 

@@ -3,10 +3,10 @@ import os
 from pathlib import Path
 from typing import List, Dict, Any
 from app.utils.anthropic_client import AnthropicClient
-from app.utils.logging_utils import setup_logger
+from app.common.logging import get_logger
 from app.models.classification import Classification
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 # Constants
 BINARY_EXTENSIONS = ('.jpg', '.png', '.gif', '.pdf', '.zip')

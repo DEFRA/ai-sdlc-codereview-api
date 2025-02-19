@@ -4,14 +4,14 @@ from typing import Optional
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection
 from app.models.standard_set import StandardSet, StandardSetCreate, StandardSetWithStandards
-from app.utils.logging_utils import setup_logger
+from app.common.logging import get_logger
 from app.utils.id_validation import ensure_object_id
 from pymongo import ReturnDocument
 from pymongo.errors import OperationFailure
 from app.repositories.errors import DatabaseError, RepositoryError
 from bson.errors import InvalidId
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 class StandardSetRepository:
     """Repository for standard set operations."""

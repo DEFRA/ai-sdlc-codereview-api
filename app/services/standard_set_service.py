@@ -4,10 +4,10 @@ from multiprocessing import Process
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.models.standard_set import StandardSet, StandardSetCreate, StandardSetWithStandards
 from app.repositories.standard_set_repo import StandardSetRepository
-from app.utils.logging_utils import setup_logger
+from app.common.logging import get_logger
 from app.agents.standards_agent import process_standard_set
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 class StandardSetService:
     """Service for managing standard sets."""

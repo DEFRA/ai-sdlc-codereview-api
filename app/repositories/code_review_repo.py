@@ -4,10 +4,10 @@ from typing import List, Optional
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection
 from app.models.code_review import CodeReview, CodeReviewCreate, ReviewStatus, CodeReviewList
-from app.utils.logging_utils import setup_logger
+from app.common.logging import get_logger
 from app.utils.id_validation import ensure_object_id
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 class CodeReviewRepository:
     """Repository for code review operations."""

@@ -3,10 +3,10 @@ import os
 from abc import ABC, abstractmethod
 from typing import Optional, Protocol, Union, Any
 from anthropic import AsyncAnthropic, AsyncAnthropicBedrock
-from app.utils.logging_utils import setup_logger
+from app.common.logging import get_logger
 from app.config.config import settings
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 USE_BEDROCK = settings.ANTHROPIC_BEDROCK == 'true'
 

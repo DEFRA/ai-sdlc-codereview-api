@@ -1,14 +1,13 @@
 """Git Repos Agent for handling repository operations."""
 import os
 import git
-import logging
 from pathlib import Path
 from typing import List, Tuple
-from app.utils.logging_utils import setup_logger
+from app.common.logging import get_logger
 from app.config.config import settings
 import tempfile
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 STANDARDS_REPO = "https://github.com/DEFRA/software-development-standards"
 DATA_DIR = Path("data")

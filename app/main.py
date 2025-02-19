@@ -9,10 +9,12 @@ from aws_embedded_metrics.config import get_config
 from app.api.v1 import classifications, code_reviews, standard_sets
 from app.config.config import settings
 from app.database.database_init import init_database
+from app.common.logging import configure_logging, get_logger
 
 Confg = get_config()
 
-logger = getLogger(__name__)
+configure_logging()
+logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

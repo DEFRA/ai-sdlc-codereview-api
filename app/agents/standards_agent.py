@@ -14,7 +14,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from anthropic import Anthropic
 
 # local
-from app.utils.logging_utils import setup_logger
+from app.common.logging import get_logger
 from app.utils.anthropic_client import AnthropicClient
 from app.agents.git_repos_agent import download_repository
 from app.repositories.classification_repo import ClassificationRepository
@@ -23,7 +23,7 @@ from app.models.classification import Classification
 from app.config.config import settings
 from app.database.database_utils import get_database
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 
 class StandardsError(Exception):

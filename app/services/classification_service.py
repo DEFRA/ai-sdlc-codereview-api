@@ -3,9 +3,9 @@ from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.models.classification import Classification, ClassificationCreate
 from app.repositories.classification_repo import ClassificationRepository
-from app.utils.logging_utils import setup_logger
+from app.common.logging import get_logger
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 class ClassificationService:
     """Service for managing classifications."""

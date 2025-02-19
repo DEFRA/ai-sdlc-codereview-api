@@ -7,10 +7,10 @@ import asyncio
 from bson import ObjectId
 
 from app.utils.anthropic_client import AnthropicClient
-from app.utils.logging_utils import setup_logger
+from app.common.logging import get_logger
 from app.database.database_utils import get_database
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 
 class CodeReviewError(Exception):

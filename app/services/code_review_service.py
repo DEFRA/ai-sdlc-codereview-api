@@ -10,11 +10,11 @@ from app.repositories.code_review_repo import CodeReviewRepository
 from app.agents.git_repos_agent import process_repositories
 from app.agents.code_reviews_agent import check_compliance
 from app.agents.standards_classification_agent import analyze_codebase_classifications
-from app.utils.logging_utils import setup_logger
+from app.common.logging import get_logger
 from app.utils.id_validation import ensure_object_id
 from app.config.config import settings
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 
 def _run_in_process(review_id: str, repository_url: str, standard_sets: list[str]):

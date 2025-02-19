@@ -6,7 +6,6 @@ motor==3.6.0
 pydantic==2.10.5
 pydantic-settings==2.7.1
 anthropic[bedrock]==0.42.0
-python-dotenv==1.0.1
 pymongo[srv]==4.9.2
 asgi-lifespan==2.1.0
 tiktoken>=0.5.1

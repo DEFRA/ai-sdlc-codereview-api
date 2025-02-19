@@ -49,7 +49,6 @@ services:
       mongodb:
         condition: service_started
     env_file:
-      - ".env"
       - "compose/aws.env"
       - "compose/secrets.env"
     environment:

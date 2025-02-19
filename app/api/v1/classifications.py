@@ -4,10 +4,10 @@ from typing import List
 from app.models.classification import Classification, ClassificationCreate
 from app.services.classification_service import ClassificationService
 from app.api.dependencies import get_classification_service
-from app.utils.logging_utils import setup_logger
+from app.common.logging import get_logger
 from app.utils.id_validation import ensure_object_id
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 router = APIRouter()
 
 @router.post("/classifications", 

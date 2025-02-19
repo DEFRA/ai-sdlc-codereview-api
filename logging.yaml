@@ -2,15 +2,13 @@ version: 1
 disable_existing_loggers: False
 formatters:
   default:
-    # "()": uvicorn.logging.DefaultFormatter
+    # Will be overridden at runtime based on environment
     format: '%(message)s'
-    class: ecs_logging.StdlibFormatter
   access:
-    # "()": uvicorn.logging.AccessFormatter
+    # Will be overridden at runtime based on environment
     format: '%(message)s'
-    class: ecs_logging.StdlibFormatter
   simple:
-    format: '%(message)s'
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 handlers:
   default:
     formatter: default
