@@ -1,16 +1,29 @@
 # ai-sdlc-codereview-api
 
-Core Delivery Platform Python Backend Template.
+A Python FastAPI service that provides endpoints for creating and retrieving AI-powered code reviews, with asynchronous analysis using Anthropic's API.
+
+## Features
+
+- Create and retrieve code reviews
+- Asynchronous code analysis workflow
+- MongoDB storage with schema validation
+- Anthropic API integration for intelligent code analysis
+- Structured logging with configurable outputs
+- Health check endpoint with database connectivity status
+- Standard sets management for code review rules
+- Classification system for technology-specific standards
+- Git repository analysis and cloning
+- Comprehensive test coverage
 
 - [ai-sdlc-codereview-api](#ai-sdlc-codereview-api)
   - [Requirements](#requirements)
     - [Python](#python)
     - [Docker](#docker)
   - [Local development](#local-development)
-    - [Setup](#setup)
+    - [Setup & Configuration](#setup--configuration)
     - [Development](#development)
     - [Testing](#testing)
-    - [Production](#production)
+    - [Production Mode](#production-mode)
   - [API endpoints](#api-endpoints)
   - [Custom Cloudwatch Metrics](#custom-cloudwatch-metrics)
   - [Pipelines](#pipelines)
@@ -39,7 +52,7 @@ python -m pip install --upgrade pip
 pip install -r requirements-dev.txt
 ```
 
-This opinionated template uses the [`Fast API`](https://fastapi.tiangolo.com/) Python API framework.
+This service uses the [`Fast API`](https://fastapi.tiangolo.com/) Python API framework with MongoDB for data storage and Anthropic's Claude for AI-powered code analysis.
 
 This and all other runtime python libraries must reside in `requirements.txt`
 
@@ -53,13 +66,17 @@ See the `Dockerfile` and `compose.yml` for details
 
 ## Local development
 
-### Setup
+### Setup & Configuration
 
-Libraries: Ensure the python virtual environment is configured and libraries are installed using `requirements-dev.txt`, [as above](#python)
+Follow the convention below for local environment variables and secrets in local development. Note that it does not use .env or python-dotenv as this is not the convention in the CDP environment.
 
-Environment variables: `compose/aws.env`
+**Environment variables:** `compose/aws.env`.
 
-Secrets: `compose/secrets.env`. You need to create this, as it's excluded from version control.
+**Secrets:** `compose/secrets.env`. You need to create this, as it's excluded from version control. Required secrets include:
+- `ANTHROPIC_API_KEY`: If using standard Anthropic, not bedrock
+- `MONGO_URI`: MongoDB connection string (if different from default)
+
+**Libraries:** Ensure the python virtual environment is configured and libraries are installed using `requirements-dev.txt`, [as above](#python)
 
 ### Development
 
@@ -87,7 +104,7 @@ To test the application run:
 pytest
 ```
 
-### Production
+### Production Mode
 
 To mimic the application running in `production mode locally run:
 
@@ -103,10 +120,14 @@ docker compose down
 
 ## API endpoints
 
-| Endpoint             | Description                    |
-| :------------------- | :----------------------------- |
-| `GET: /docs`         | Automatic API Swagger docs     |
-| `GET: /example`      | Simple example                 |
+| Endpoint                    | Description                    |
+| :------------------------- | :----------------------------- |
+| `GET: /docs`               | Automatic API Swagger docs     |
+| `GET: /health`             | Health check endpoint          |
+| `GET: /api/v1/code-reviews` | List all code reviews         |
+| `POST: /api/v1/code-reviews` | Create new code review       |
+| `GET: /api/v1/code-reviews/{id}` | Get specific review      |
+| `GET: /api/v1/code-reviews/{id}/results`| Get review results |
 
 ## Custom Cloudwatch Metrics
 
