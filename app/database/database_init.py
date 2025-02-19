@@ -185,7 +185,13 @@ async def init_database():
     # Add SSL context if available
     if ssl_context:
         logger.info("Using custom SSL context with provided certificates")
-        connection_options["ssl_context"] = ssl_context
+        connection_options.update({
+            "tls": True,
+            "tlsAllowInvalidCertificates": False,
+            "tlsCertificateKeyFile": None,  # Not needed as using context
+            "tlsCAFile": None,  # Not needed as using context
+            "_ssl_context": ssl_context  # Internal option used by Motor/PyMongo
+        })
     else:
         logger.info("Using default SSL configuration")
     
