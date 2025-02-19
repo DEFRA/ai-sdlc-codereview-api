@@ -1,9 +1,10 @@
 """Database initialization module."""
+import os
 from datetime import datetime, UTC
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.config.config import settings
 from app.models.code_review import ReviewStatus
-from app.common.ssl_context import create_ssl_context
+from app.common.ssl_context import get_mongodb_ssl_options
 from app.common.logging import get_logger
 
 logger = get_logger(__name__)
@@ -172,50 +173,63 @@ code_review_schema = {
 }
 
 async def init_database():
-    """Initialize database with schema validation."""
-    # Get SSL context if secure context is enabled
-    ssl_context = create_ssl_context()
+    """Initialize database with schema validation.
     
-    # Base connection options
+    Sets up MongoDB connection with proper SSL/TLS configuration and 
+    initializes collections with schema validation.
+    
+    Returns:
+        AsyncIOMotorDatabase: Initialized database instance
+    """
+    # Base MongoDB connection options
     connection_options = {
         "retryWrites": True,
         "readPreference": "primary"
     }
     
-    # Add SSL context if available
-    if ssl_context:
-        logger.info("Using custom SSL context with provided certificates")
-        connection_options.update({
-            "tls": True,
-            "tlsAllowInvalidCertificates": False,
-            "tlsCertificateKeyFile": None,  # Not needed as using context
-            "tlsCAFile": None,  # Not needed as using context
-            "_ssl_context": ssl_context  # Internal option used by Motor/PyMongo
-        })
+    # Configure SSL/TLS if enabled
+    ssl_options, temp_ca_file = get_mongodb_ssl_options()
+    if ssl_options:
+        logger.info("Using custom SSL configuration with provided certificates")
+        connection_options.update(ssl_options)
     else:
         logger.info("Using default SSL configuration")
     
-    client = AsyncIOMotorClient(settings.MONGO_URI, **connection_options)
-    db = client.code_reviews
+    try:
+        # Initialize MongoDB client and test connection
+        client = AsyncIOMotorClient(settings.MONGO_URI, **connection_options)
+        db = client.code_reviews
+        await client.admin.command('ping')
+        
+        # Create collections with schema validation
+        collections_config = {
+            "code_reviews": code_review_schema,
+            "classifications": classifications_schema,
+            "standard_sets": standard_sets_schema,
+            "standards": standards_schema
+        }
 
-    # Create collections with schema validation
-    collections_config = {
-        "code_reviews": code_review_schema,
-        "classifications": classifications_schema,
-        "standard_sets": standard_sets_schema,
-        "standards": standards_schema
-    }
-
-    for collection_name, schema in collections_config.items():
-        if collection_name not in await db.list_collection_names():
-            await db.create_collection(
-                collection_name,
-                validator=schema
-            )
-        else:
-            await db.command({
-                "collMod": collection_name,
-                "validator": schema
-            })
-
-    return db
+        for collection_name, schema in collections_config.items():
+            if collection_name not in await db.list_collection_names():
+                await db.create_collection(
+                    collection_name,
+                    validator=schema
+                )
+            else:
+                await db.command({
+                    "collMod": collection_name,
+                    "validator": schema
+                })
+                
+        return db
+        
+    finally:
+        # Clean up temporary certificate file
+        if temp_ca_file:
+            try:
+                os.unlink(temp_ca_file)
+            except Exception as e:
+                logger.error(
+                    "Failed to remove temporary CA file",
+                    extra={"error": str(e)}
+                )
