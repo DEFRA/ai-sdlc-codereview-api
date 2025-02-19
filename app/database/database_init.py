@@ -187,6 +187,10 @@ async def init_database():
         "readPreference": "primary"
     }
     
+    # Add AWS auth mechanism only if not in local development
+    if os.getenv('ENABLE_SECURE_CONTEXT', '') == 'true':
+        connection_options["authMechanism"] = "MONGODB-AWS"
+    
     # Configure SSL/TLS if enabled
     ssl_options, temp_ca_file = get_mongodb_ssl_options()
     if ssl_options:
