@@ -50,10 +50,46 @@ def dump_database(test_data_dir: str = "test_data"):
     print(f"Database dumped to: {output_file}")
     return output_file
 
+def convert_string_ids_to_objectid(data):
+    """Convert string IDs to ObjectId in the MongoDB dump data"""
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if key == '_id' or key.endswith('_id'):
+                if isinstance(value, str):
+                    try:
+                        data[key] = ObjectId(value)
+                    except:
+                        pass
+            # Handle arrays of IDs (like classification_ids)
+            elif key.endswith('_ids') and isinstance(value, list):
+                data[key] = [ObjectId(id_str) for id_str in value if isinstance(id_str, str)]
+            elif isinstance(value, (dict, list)):
+                convert_string_ids_to_objectid(value)
+    elif isinstance(data, list):
+        for item in data:
+            convert_string_ids_to_objectid(item)
+    return data
+
+def convert_string_dates_to_datetime(data):
+    """Convert string dates to datetime objects in the MongoDB dump data"""
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if key in ['created_at', 'updated_at'] and isinstance(value, str):
+                try:
+                    data[key] = datetime.fromisoformat(value)
+                except:
+                    pass
+            elif isinstance(value, (dict, list)):
+                convert_string_dates_to_datetime(value)
+    elif isinstance(data, list):
+        for item in data:
+            convert_string_dates_to_datetime(item)
+    return data
+
 def restore_database(dump_file: str = None):
-    """Restore database from a dump file in test_data directory."""
+    """Restore MongoDB database from a JSON dump file"""
+    # If no file specified, use the most recent dump
     if dump_file is None:
-        # If no file specified, use the most recent dump
         dumps_dir = "test_data/mongodb_dumps"
         if not os.path.exists(dumps_dir):
             print("No dumps directory found")
@@ -73,39 +109,24 @@ def restore_database(dump_file: str = None):
         print(f"Dump file not found: {dump_file}")
         return
     
-    # Load dump data
-    with open(dump_file, 'r') as f:
-        dump_data = json.load(f)
+    # Load and restore the data
+    with open(dump_file) as f:
+        data = json.load(f)
     
-    # Clear and restore database
+    # Convert string IDs to ObjectId and dates to datetime
+    data = convert_string_ids_to_objectid(data)
+    data = convert_string_dates_to_datetime(data)
+    
     db = get_database()
-    for collection_name in dump_data:
-        # Clear existing data
-        db[collection_name].delete_many({})
-        
-        # Convert string IDs to ObjectId
-        documents = []
-        for doc in dump_data[collection_name]:
-            # Convert _id to ObjectId
-            if '_id' in doc:
-                doc['_id'] = ObjectId(doc['_id'])
-            
-            # Convert other *_id fields to ObjectId
-            for key in doc:
-                if key.endswith('_id') and isinstance(doc[key], str):
-                    try:
-                        doc[key] = ObjectId(doc[key])
-                    except:
-                        # Keep as string if not a valid ObjectId
-                        pass
-                elif key.endswith('_ids') and isinstance(doc[key], list):
-                    # Convert list of IDs
-                    doc[key] = [ObjectId(id_str) for id_str in doc[key] if isinstance(id_str, str)]
-            
-            documents.append(doc)
-            
-        # Insert dump data
-        if documents:
+    
+    # Clear existing collections
+    for collection_name in data.keys():
+        if collection_name in db.list_collection_names():
+            db[collection_name].delete_many({})
+    
+    # Insert the data
+    for collection_name, documents in data.items():
+        if documents:  # Only insert if there are documents
             db[collection_name].insert_many(documents)
     
     print(f"Database restored from: {dump_file}")
