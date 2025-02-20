@@ -21,7 +21,7 @@ def _run_in_process(review_id: str, repository_url: str, standard_sets: list[str
     """Run the review process in a separate process."""
     async def _run():
         client = AsyncIOMotorClient(settings.MONGO_URI)
-        db = client[settings.MONGO_INITDB_DATABASE]
+        db = client[settings.MONGO_DATABASE]
         repo = CodeReviewRepository(db.code_reviews)
         codebase_file = None
 

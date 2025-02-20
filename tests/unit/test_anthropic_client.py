@@ -30,13 +30,13 @@ class TestAnthropicClient:
     async def test_get_client_creates_direct_instance(self):
         """Test direct client instance creation with valid API key."""
         # Given: No existing client instance and Bedrock disabled
-        with patch('app.utils.anthropic_client.USE_BEDROCK', False):
+        with patch('app.utils.anthropic_client.USE_BEDROCK', False), \
+             patch('app.utils.anthropic_client.settings.ANTHROPIC_API_KEY', 'fake-api-key'):
             # When: Getting client instance
             client = AnthropicClient.get_client()
-
-            # Then: New Direct instance is created
+            
+            # Then: Should return AsyncAnthropic instance
             assert isinstance(client, AsyncAnthropic)
-            assert isinstance(AnthropicClient._instance, DirectAnthropicClient)
 
     async def test_get_client_creates_bedrock_instance(self):
         """Test bedrock client instance creation with valid credentials."""

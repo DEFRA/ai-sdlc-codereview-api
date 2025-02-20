@@ -119,15 +119,20 @@ class AnthropicClient:
         model = settings.AWS_BEDROCK_MODEL if USE_BEDROCK else settings.ANTHROPIC_MODEL
         
         try:
-            message = await client.messages.create(
+            response = await client.messages.create(
                 model=model,
                 max_tokens=max_tokens or settings.ANTHROPIC_MAX_TOKENS,
                 system=system_prompt,
                 temperature=temperature or settings.ANTHROPIC_TEMPERATURE,
                 messages=[{"role": "user", "content": prompt}]
             )
-            return message.content[0].text
             
+            try:
+                return response.content[0].text
+            except (IndexError, AttributeError):
+                logger.warning("Could not extract text from response, returning empty string")
+                return ""
+                
         except Exception as e:
-            logger.error(f"Error creating message: {str(e)}")
+            logger.error(f"Error creating message: {e}")
             raise 

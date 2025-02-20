@@ -45,9 +45,10 @@ class CodeReviewRepository:
             
             result = await self.collection.insert_one(doc)
             created_review = await self.collection.find_one({"_id": result.inserted_id})
+            logger.info(f"Created code review with ID: {result.inserted_id}")
             return CodeReview(**created_review)
         except Exception as e:
-            logger.error(f"Error creating code review: {str(e)}")
+            logger.error(f"Error creating code review: {str(e)}", exc_info=True)
             raise
 
     async def get_all(self, status: Optional[ReviewStatus] = None) -> List[CodeReviewList]:

@@ -54,6 +54,7 @@ class StandardsConfig:
 
 async def process_standard_set(standard_set_id: str, repository_url: str):
     """Process a standard set in the background."""
+    temp_dir = None
     try:
         logger.debug(
             f"Starting to process standard set {standard_set_id} from repository {repository_url}")
@@ -62,24 +63,24 @@ async def process_standard_set(standard_set_id: str, repository_url: str):
         db = await get_database()
 
         # Get repositories
-        repo = await download_repository(repository_url)
+        repo_path, temp_dir = await download_repository(repository_url)
 
         # Get all classifications
         classifications = await get_classifications(db)
 
         # Process standards
-        await process_standards(db, repo, standard_set_id, classifications)
+        await process_standards(db, repo_path, standard_set_id, classifications)
 
         # Log completion
         logger.info(f"Successfully processed standard set {standard_set_id}")
 
-        # Cleanup
-        cleanup_repository(repo)
-        logger.debug(f"Cleaned up repository at {repo}")
-
     except Exception as e:
-        logger.error(f"Error processing standard set: {str(e)}", exc_info=True)
+        logger.error(f"Error processing standard set: {str(e)}")
         raise StandardsProcessingError(str(e)) from e
+    finally:
+        # Cleanup temp directory if it exists
+        if temp_dir:
+            temp_dir.cleanup()
 
 
 async def get_classifications(db: AsyncIOMotorDatabase) -> List[Classification]:

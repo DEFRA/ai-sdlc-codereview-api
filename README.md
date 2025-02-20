@@ -2,19 +2,6 @@
 
 A Python FastAPI service that provides endpoints for creating and retrieving AI-powered code reviews, with asynchronous analysis using Anthropic's API.
 
-## Features
-
-- Create and retrieve code reviews
-- Asynchronous code analysis workflow
-- MongoDB storage with schema validation
-- Anthropic API integration for intelligent code analysis
-- Structured logging with configurable outputs
-- Health check endpoint with database connectivity status
-- Standard sets management for code review rules
-- Classification system for technology-specific standards
-- Git repository analysis and cloning
-- Comprehensive test coverage
-
 - [ai-sdlc-codereview-api](#ai-sdlc-codereview-api)
   - [Requirements](#requirements)
     - [Python](#python)

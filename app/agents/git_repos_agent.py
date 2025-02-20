@@ -64,43 +64,43 @@ async def clone_repo(repo_url: str, target_dir: Path) -> None:
     git.Repo.clone_from(repo_url, str(target_dir))
 
 
-async def download_repository(repository_url: str) -> Path:
+async def download_repository(repository_url: str) -> Tuple[Path, tempfile.TemporaryDirectory]:
     """Download the repository to a temporary directory.
 
     Args:
         repository_url: URL of the Git repository to clone
 
     Returns:
-        Path: Path to the temporary directory containing the cloned repository.
-              Note: This directory will be cleaned up automatically.
+        Tuple[Path, TemporaryDirectory]: Path to the cloned repository and the temp directory object
     """
-    # Use TemporaryDirectory to ensure cleanup
     temp_dir = tempfile.TemporaryDirectory()
     temp_path = Path(temp_dir.name)
     await clone_repo(repository_url, temp_path)
     logger.debug(f"Repository cloned successfully to {temp_path}")
-    # Store the TemporaryDirectory object as an attribute to prevent early cleanup
-    temp_path._temp_dir = temp_dir  # type: ignore
-    return temp_path
+    return temp_path, temp_dir
 
 
 async def process_repositories(repository_url: str) -> Path:
     """Process the code repository."""
-    import tempfile
+    try:
+        # Create necessary directories
+        CODEBASE_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Create necessary directories
-    CODEBASE_DIR.mkdir(parents=True, exist_ok=True)
+        # Extract repo name from URL
+        repo_name = os.path.basename(repository_url).replace('.git', '')
+        codebase_file = CODEBASE_DIR / f"{repo_name}.txt"
 
-    # Extract repo name from URL
-    repo_name = os.path.basename(repository_url).replace('.git', '')
-    codebase_file = CODEBASE_DIR / f"{repo_name}.txt"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            code_repo_dir = temp_path / "code"
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
-        code_repo_dir = temp_path / "code"
+            # Clone and process code repository
+            await clone_repo(repository_url, code_repo_dir)
+            await flatten_repository(code_repo_dir, codebase_file)
 
-        # Clone and process code repository
-        await clone_repo(repository_url, code_repo_dir)
-        await flatten_repository(code_repo_dir, codebase_file)
+            return codebase_file
 
-        return codebase_file
+    except Exception as e:
+        logger.error(f"Failed to process repository {repository_url}: {str(e)}", 
+                    exc_info=True)
+        raise

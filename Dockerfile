@@ -34,6 +34,11 @@ RUN adduser \
 # Create logs directory with proper permissions before switching user
 RUN mkdir -p /app/logs && chmod 777 /app/logs
 
+# Create data directory with correct permissions for processing of temporary files
+RUN mkdir -p /app/data && \
+    chown -R appuser:appuser /app/data && \
+    chmod 744 /app/data
+
 # Download dependencies as a separate step to take advantage of Docker's caching.
 RUN --mount=type=cache,target=/root/.cache/pip \
   --mount=type=bind,source=requirements.txt,target=requirements.txt \
