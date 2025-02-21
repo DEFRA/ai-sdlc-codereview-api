@@ -1,7 +1,18 @@
-"""Standards Checking Agent for compliance analysis."""
+"""Code Reviews Agent for compliance analysis.
+
+This module handles the core processing logic for code reviews, including:
+- Processing repositories for analysis
+- Matching code against compliance standards
+- Generating detailed compliance reports
+- Managing the review lifecycle
+
+The agent runs in a separate process to handle long-running tasks without blocking
+the main service. It follows the established standards agent pattern for consistency
+across the codebase.
+"""
 import os
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from datetime import datetime
 import asyncio
 from bson import ObjectId
@@ -9,6 +20,13 @@ from bson import ObjectId
 from app.utils.anthropic_client import AnthropicClient
 from app.common.logging import get_logger
 from app.database.database_utils import get_database
+from app.models.code_review import ReviewStatus
+from app.models.classification import Classification
+from app.repositories.code_review_repo import CodeReviewRepository
+from app.agents.git_repos_agent import process_repositories
+from app.agents.standards_classification_agent import analyze_codebase_classifications
+from app.utils.id_validation import ensure_object_id
+
 
 logger = get_logger(__name__)
 
@@ -25,6 +43,11 @@ class StandardsFilterError(CodeReviewError):
 
 class ReportGenerationError(CodeReviewError):
     """Error generating compliance report."""
+    pass
+
+
+class ProcessingError(CodeReviewError):
+    """Error during code review processing."""
     pass
 
 
@@ -288,3 +311,116 @@ async def check_compliance(
 
     except Exception as e:
         raise CodeReviewError(f"Compliance check failed: {str(e)}") from e
+
+
+async def process_code_review(review_id: str, repository_url: str, standard_sets: List[str]) -> None:
+    """Process a code review in the background.
+
+    Args:
+        review_id: The ID of the code review
+        repository_url: URL of the repository to analyze
+        standard_sets: List of standard set IDs to check against
+
+    Raises:
+        ProcessingError: If processing fails
+    """
+    codebase_file = None
+    try:
+        logger.debug(
+            f"Starting code review {review_id} for repository {repository_url}")
+
+        # Get database connection
+        db = await get_database()
+        repo = CodeReviewRepository(db.code_reviews)
+
+        # Update status to in progress
+        await repo.update_status(review_id, ReviewStatus.IN_PROGRESS)
+
+        # Process repository
+        codebase_file = await process_repositories(repository_url)
+
+        # Get all classifications
+        raw_classifications = await db.classifications.find().to_list(None)
+        classifications = [Classification.model_validate(
+            doc) for doc in raw_classifications]
+
+        # Analyze codebase to determine relevant classifications
+        matching_classification_ids = await analyze_codebase_classifications(
+            codebase_file.parent,
+            classifications
+        )
+
+        # Process each standard set
+        compliance_reports = []
+        for standard_set_id in standard_sets:
+            try:
+                # Get standard set from database
+                object_id = ensure_object_id(standard_set_id)
+                if not object_id:
+                    logger.error(
+                        f"Invalid standard set ID format: {standard_set_id}")
+                    continue
+
+                standard_set = await db.standard_sets.find_one({"_id": object_id})
+                if not standard_set:
+                    logger.error(f"Standard set {standard_set_id} not found")
+                    continue
+
+                # Query for matching standards
+                query = {
+                    "standard_set_id": object_id,
+                    "$or": [
+                        *[{"classification_ids": obj_id}
+                            for obj_id in matching_classification_ids],
+                        {"$or": [
+                            {"classification_ids": {"$size": 0}},
+                            {"classification_ids": {"$exists": False}},
+                            {"classification_ids": None}
+                        ]}
+                    ]
+                }
+
+                standards = await db.standards.find(query).to_list(None)
+                if not standards:
+                    logger.warning(
+                        f"No matching standards found for standard set {standard_set_id}")
+                    continue
+
+                # Check compliance
+                report_file = await check_compliance(
+                    codebase_file,
+                    standards,
+                    review_id,
+                    standard_set.get("name", "Unknown"),
+                    matching_classification_ids
+                )
+
+                # Create compliance report
+                compliance_reports.append({
+                    "_id": ObjectId(),
+                    "standard_set_name": standard_set.get("name", "Unknown"),
+                    "file": str(report_file),
+                    "report": report_file.read_text()
+                })
+
+            except Exception as e:
+                logger.error(
+                    f"Error processing standard set {standard_set_id}: {str(e)}")
+                continue
+
+        # Update the code review with compliance reports
+        await repo.update_status(review_id, ReviewStatus.COMPLETED, compliance_reports)
+
+    except Exception as e:
+        logger.error(f"Error processing code review {review_id}: {str(e)}")
+        await repo.update_status(review_id, ReviewStatus.FAILED)
+        raise ProcessingError(
+            f"Failed to process code review: {str(e)}") from e
+    finally:
+        if codebase_file and codebase_file.exists():
+            try:
+                codebase_file.unlink()
+                logger.debug(f"Cleaned up temporary file: {codebase_file}")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to clean up temporary file {codebase_file}: {e}")

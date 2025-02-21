@@ -237,3 +237,192 @@ async def test_code_review_with_db_failure(
     assert "Compliance check failed" in str(exc_info.value)
     assert "Database Error" in str(exc_info.value)
     mock_anthropic.assert_not_called()  # Should fail before reaching Anthropic API
+
+# Test Cases - Process Code Review Flow
+
+
+@pytest.fixture
+async def mock_process_repositories():
+    """Mock process_repositories function."""
+    with patch('app.agents.code_reviews_agent.process_repositories') as mock:
+        mock.return_value = Path("/tmp/test_codebase.py")
+        yield mock
+
+
+@pytest.fixture
+async def mock_analyze_classifications():
+    """Mock analyze_codebase_classifications function."""
+    with patch('app.agents.code_reviews_agent.analyze_codebase_classifications') as mock:
+        mock.return_value = [ObjectId()]
+        yield mock
+
+
+@pytest.fixture
+async def mock_code_review_repo():
+    """Mock CodeReviewRepository."""
+    with patch('app.agents.code_reviews_agent.CodeReviewRepository') as mock:
+        repo_instance = AsyncMock()
+        mock.return_value = repo_instance
+        yield repo_instance
+
+
+@pytest.fixture
+async def mock_check_compliance():
+    """Mock check_compliance function."""
+    with patch('app.agents.code_reviews_agent.check_compliance') as mock:
+        # Create a mock Path class
+        mock_path = MagicMock(spec=Path)
+        mock_path.exists.return_value = True
+        mock_path.read_text.return_value = "Mock compliance report content"
+        mock_path.__str__.return_value = "/tmp/mock_report.md"
+
+        mock.return_value = mock_path
+        yield mock
+
+
+async def test_process_code_review_success(
+    mock_database,
+    mock_anthropic,
+    mock_process_repositories,
+    mock_analyze_classifications,
+    mock_code_review_repo,
+    mock_check_compliance,
+    temp_codebase
+):
+    """Test successful end-to-end process_code_review flow."""
+    from app.agents.code_reviews_agent import process_code_review, ReviewStatus
+    from app.models.classification import Classification
+
+    # Given: Test data setup with consistent IDs
+    standard_set_id = ObjectId()  # Create ID once and reuse
+    review_id = str(ObjectId())
+    repository_url = "https://github.com/test/repo"
+    standard_sets = [str(standard_set_id)]  # Use the same ID
+
+    # Mock database responses
+    mock_database.classifications.find.return_value.to_list.return_value = [
+        {"_id": ObjectId(), "name": "Python", "rules": []}
+    ]
+    mock_database.standard_sets.find_one.return_value = {
+        "_id": standard_set_id,  # Use the same ID
+        "name": "Test Standards"
+    }
+    mock_database.standards.find.return_value.to_list.return_value = [
+        {"_id": ObjectId(), "text": "Test standard"}
+    ]
+
+    # When: Running the code review process
+    await process_code_review(review_id, repository_url, standard_sets)
+
+    # Then: Verify the process flow
+    mock_code_review_repo.update_status.assert_any_call(
+        review_id, ReviewStatus.IN_PROGRESS
+    )
+    mock_process_repositories.assert_called_once_with(repository_url)
+    mock_analyze_classifications.assert_called_once()
+    mock_check_compliance.assert_called_once()
+
+    # Verify final status update
+    final_call_args = mock_code_review_repo.update_status.call_args_list[-1]
+    assert final_call_args[0][0] == review_id  # review_id
+    assert final_call_args[0][1] == ReviewStatus.COMPLETED  # status
+    assert isinstance(final_call_args[0][2], list)  # compliance_reports
+    assert len(final_call_args[0][2]) == 1  # one standard set processed
+
+    # Verify report content
+    report = final_call_args[0][2][0]
+    assert report["standard_set_name"] == "Test Standards"
+    assert report["report"] == "Mock compliance report content"
+    assert "_id" in report
+
+
+async def test_process_code_review_with_invalid_standard_set(
+    mock_database,
+    mock_anthropic,
+    mock_process_repositories,
+    mock_analyze_classifications,
+    mock_code_review_repo
+):
+    """Test process_code_review with invalid standard set ID."""
+    from app.agents.code_reviews_agent import process_code_review, ReviewStatus
+
+    # Given: Invalid standard set ID
+    review_id = str(ObjectId())
+    repository_url = "https://github.com/test/repo"
+    standard_sets = ["invalid_id"]  # Invalid ObjectId format
+
+    # Mock database responses
+    mock_database.classifications.find.return_value.to_list.return_value = [
+        {"_id": ObjectId(), "name": "Python", "rules": []}
+    ]
+
+    # When: Running the code review process
+    await process_code_review(review_id, repository_url, standard_sets)
+
+    # Then: Verify process completed with empty reports
+    final_call_args = mock_code_review_repo.update_status.call_args_list[-1]
+    assert final_call_args[0][0] == review_id
+    assert final_call_args[0][1] == ReviewStatus.COMPLETED
+    assert len(final_call_args[0][2]) == 0  # no reports generated
+
+
+async def test_process_code_review_with_repository_error(
+    mock_database,
+    mock_anthropic,
+    mock_process_repositories,
+    mock_code_review_repo
+):
+    """Test process_code_review when repository processing fails."""
+    from app.agents.code_reviews_agent import process_code_review, ReviewStatus, ProcessingError
+
+    # Given: Repository processing error
+    review_id = str(ObjectId())
+    repository_url = "https://github.com/test/repo"
+    standard_sets = [str(ObjectId())]
+    mock_process_repositories.side_effect = Exception(
+        "Repository processing failed")
+
+    # When/Then: Process should handle error and update status
+    with pytest.raises(ProcessingError) as exc_info:
+        await process_code_review(review_id, repository_url, standard_sets)
+
+    assert "Repository processing failed" in str(exc_info.value)
+    mock_code_review_repo.update_status.assert_any_call(
+        review_id, ReviewStatus.FAILED
+    )
+
+
+async def test_process_code_review_with_no_matching_standards(
+    mock_database,
+    mock_anthropic,
+    mock_process_repositories,
+    mock_analyze_classifications,
+    mock_code_review_repo
+):
+    """Test process_code_review when no standards match the classifications."""
+    from app.agents.code_reviews_agent import process_code_review, ReviewStatus
+
+    # Given: Valid standard set but no matching standards
+    review_id = str(ObjectId())
+    repository_url = "https://github.com/test/repo"
+    standard_sets = [str(ObjectId())]
+
+    # Mock database responses
+    mock_database.classifications.find.return_value.to_list.return_value = [
+        {"_id": ObjectId(), "name": "Python", "rules": []}
+    ]
+    mock_database.standard_sets.find_one.return_value = {
+        "_id": ObjectId(),
+        "name": "Test Standards"
+    }
+    # No matching standards
+    mock_database.standards.find.return_value.to_list.return_value = []
+
+    # When: Running the code review process
+    await process_code_review(review_id, repository_url, standard_sets)
+
+    # Then: Process should complete with empty reports
+    final_call_args = mock_code_review_repo.update_status.call_args_list[-1]
+    assert final_call_args[0][0] == review_id
+    assert final_call_args[0][1] == ReviewStatus.COMPLETED
+    assert len(final_call_args[0][2]) == 0  # no reports generated
