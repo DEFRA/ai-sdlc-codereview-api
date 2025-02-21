@@ -2,7 +2,7 @@
 description: Mongo DB Database Mocking
 globs: .py
 ---
-# CURSORRULES: Best Practices for Mocking MongoDB in Tests
+# Best Practices for Mocking MongoDB in Tests
 
 This document outlines the recommended rules and practices for mocking MongoDB interactions in our codebase. It builds on our current approach and includes additional suggestions for improved test isolation, clarity, and reliability.
 
