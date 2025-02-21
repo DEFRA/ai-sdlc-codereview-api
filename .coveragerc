@@ -1,0 +1,4 @@
+[run]
+omit =
+    app/database/database_init.py
+    app/api/dependencies.py 

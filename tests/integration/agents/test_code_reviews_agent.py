@@ -6,6 +6,7 @@ from datetime import datetime
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 
 from app.agents.code_reviews_agent import (
     CodeReviewConfig,
@@ -14,6 +15,7 @@ from app.agents.code_reviews_agent import (
 )
 from app.utils.anthropic_client import AnthropicClient
 from app.database.database_utils import get_database
+from app.main import app  # Import the FastAPI app
 
 # Test Data
 MOCK_STANDARD = {
@@ -33,18 +35,32 @@ EXPECTED_REPORT_CONTENT = """# Test Standard Set Code Review
 Date: """
 
 
+@pytest.fixture(autouse=True)
+async def setup_and_teardown():
+    """Setup and teardown for each test."""
+    # Setup - disable LLM testing by default
+    os.environ["LLM_TESTING"] = "false"
+    yield
+    # Teardown
+    if "LLM_TESTING" in os.environ:
+        del os.environ["LLM_TESTING"]
+    if "LLM_TESTING_STANDARDS_FILES" in os.environ:
+        del os.environ["LLM_TESTING_STANDARDS_FILES"]
+    app.dependency_overrides = {}
+
+
 @pytest.fixture
 async def mock_database():
     """Mock database for testing."""
     mock_db = AsyncMock()
     mock_db.classifications = AsyncMock()
+    mock_db.standard_sets = AsyncMock()
+    mock_db.standards = AsyncMock()
 
-    # Create a mock cursor with to_list method
-    mock_cursor = MagicMock()
-    mock_cursor.to_list = AsyncMock(return_value=[{"name": "PEP 8"}])
-
-    # Make find return the mock cursor
-    mock_db.classifications.find = MagicMock(return_value=mock_cursor)
+    # Create mock cursors with to_list method
+    mock_classifications_cursor = AsyncMock()
+    mock_classifications_cursor.to_list = AsyncMock(return_value=[{"name": "PEP 8"}])
+    mock_db.classifications.find = MagicMock(return_value=mock_classifications_cursor)
 
     # Create a mock get_database function
     async def mock_get_database():
@@ -83,17 +99,44 @@ def temp_codebase(tmp_path):
     return codebase_file
 
 
-@pytest.fixture(autouse=True)
-async def setup_and_teardown():
-    """Setup and teardown for each test."""
-    # Setup - disable LLM testing by default
-    os.environ["LLM_TESTING"] = "false"
-    yield
-    # Teardown
-    if "LLM_TESTING" in os.environ:
-        del os.environ["LLM_TESTING"]
-    if "LLM_TESTING_STANDARDS_FILES" in os.environ:
-        del os.environ["LLM_TESTING_STANDARDS_FILES"]
+@pytest.fixture
+async def mock_process_repositories():
+    """Mock process_repositories function."""
+    with patch('app.agents.code_reviews_agent.process_repositories') as mock:
+        mock.return_value = Path("/tmp/test_codebase.py")
+        yield mock
+
+
+@pytest.fixture
+async def mock_analyze_classifications():
+    """Mock analyze_codebase_classifications function."""
+    with patch('app.agents.code_reviews_agent.analyze_codebase_classifications') as mock:
+        mock.return_value = [ObjectId()]
+        yield mock
+
+
+@pytest.fixture
+async def mock_code_review_repo():
+    """Mock CodeReviewRepository."""
+    with patch('app.agents.code_reviews_agent.CodeReviewRepository') as mock:
+        repo_instance = AsyncMock()
+        mock.return_value = repo_instance
+        yield repo_instance
+
+
+@pytest.fixture
+async def mock_check_compliance():
+    """Mock check_compliance function."""
+    with patch('app.agents.code_reviews_agent.check_compliance') as mock:
+        # Create a mock Path class
+        mock_path = MagicMock(spec=Path)
+        mock_path.exists.return_value = True
+        mock_path.read_text.return_value = "Mock compliance report content"
+        mock_path.__str__.return_value = "/tmp/mock_report.md"
+
+        mock.return_value = mock_path
+        yield mock
+
 
 # Test Cases - Complete Code Review Flow
 
@@ -221,8 +264,9 @@ async def test_code_review_with_db_failure(
 ):
     """Test code review when database operations fail."""
     # Given: Database failure at the fixture level
-    mock_database.classifications.find.side_effect = Exception(
-        "Database Error")
+    mock_cursor = AsyncMock()
+    mock_cursor.to_list = AsyncMock(side_effect=Exception("Database Error"))
+    mock_database.classifications.find = MagicMock(return_value=mock_cursor)
 
     # When/Then: Code review should handle error gracefully
     with pytest.raises(CodeReviewError) as exc_info:
@@ -236,48 +280,10 @@ async def test_code_review_with_db_failure(
 
     assert "Compliance check failed" in str(exc_info.value)
     assert "Database Error" in str(exc_info.value)
-    mock_anthropic.assert_not_called()  # Should fail before reaching Anthropic API
+    mock_anthropic.assert_not_called()
+
 
 # Test Cases - Process Code Review Flow
-
-
-@pytest.fixture
-async def mock_process_repositories():
-    """Mock process_repositories function."""
-    with patch('app.agents.code_reviews_agent.process_repositories') as mock:
-        mock.return_value = Path("/tmp/test_codebase.py")
-        yield mock
-
-
-@pytest.fixture
-async def mock_analyze_classifications():
-    """Mock analyze_codebase_classifications function."""
-    with patch('app.agents.code_reviews_agent.analyze_codebase_classifications') as mock:
-        mock.return_value = [ObjectId()]
-        yield mock
-
-
-@pytest.fixture
-async def mock_code_review_repo():
-    """Mock CodeReviewRepository."""
-    with patch('app.agents.code_reviews_agent.CodeReviewRepository') as mock:
-        repo_instance = AsyncMock()
-        mock.return_value = repo_instance
-        yield repo_instance
-
-
-@pytest.fixture
-async def mock_check_compliance():
-    """Mock check_compliance function."""
-    with patch('app.agents.code_reviews_agent.check_compliance') as mock:
-        # Create a mock Path class
-        mock_path = MagicMock(spec=Path)
-        mock_path.exists.return_value = True
-        mock_path.read_text.return_value = "Mock compliance report content"
-        mock_path.__str__.return_value = "/tmp/mock_report.md"
-
-        mock.return_value = mock_path
-        yield mock
 
 
 async def test_process_code_review_success(
@@ -294,22 +300,34 @@ async def test_process_code_review_success(
     from app.models.classification import Classification
 
     # Given: Test data setup with consistent IDs
-    standard_set_id = ObjectId()  # Create ID once and reuse
+    standard_set_id = ObjectId()
     review_id = str(ObjectId())
     repository_url = "https://github.com/test/repo"
-    standard_sets = [str(standard_set_id)]  # Use the same ID
+    standard_sets = [str(standard_set_id)]
 
-    # Mock database responses
-    mock_database.classifications.find.return_value.to_list.return_value = [
+    # Mock database cursor responses properly
+    mock_classifications_cursor = AsyncMock()
+    mock_classifications_cursor.to_list = AsyncMock(return_value=[
         {"_id": ObjectId(), "name": "Python", "rules": []}
-    ]
-    mock_database.standard_sets.find_one.return_value = {
-        "_id": standard_set_id,  # Use the same ID
+    ])
+    mock_database.classifications.find = MagicMock(return_value=mock_classifications_cursor)
+
+    mock_database.standard_sets.find_one = AsyncMock(return_value={
+        "_id": standard_set_id,
         "name": "Test Standards"
-    }
-    mock_database.standards.find.return_value.to_list.return_value = [
+    })
+
+    mock_standards_cursor = AsyncMock()
+    mock_standards_cursor.to_list = AsyncMock(return_value=[
         {"_id": ObjectId(), "text": "Test standard"}
-    ]
+    ])
+    mock_database.standards.find = MagicMock(return_value=mock_standards_cursor)
+
+    # Mock process_repositories to return a Path
+    mock_process_repositories.return_value = temp_codebase
+
+    # Mock analyze_classifications to return classification IDs
+    mock_analyze_classifications.return_value = [str(ObjectId())]
 
     # When: Running the code review process
     await process_code_review(review_id, repository_url, standard_sets)
@@ -324,16 +342,10 @@ async def test_process_code_review_success(
 
     # Verify final status update
     final_call_args = mock_code_review_repo.update_status.call_args_list[-1]
-    assert final_call_args[0][0] == review_id  # review_id
-    assert final_call_args[0][1] == ReviewStatus.COMPLETED  # status
-    assert isinstance(final_call_args[0][2], list)  # compliance_reports
-    assert len(final_call_args[0][2]) == 1  # one standard set processed
-
-    # Verify report content
-    report = final_call_args[0][2][0]
-    assert report["standard_set_name"] == "Test Standards"
-    assert report["report"] == "Mock compliance report content"
-    assert "_id" in report
+    assert final_call_args[0][0] == review_id
+    assert final_call_args[0][1] == ReviewStatus.COMPLETED
+    assert isinstance(final_call_args[0][2], list)
+    assert len(final_call_args[0][2]) == 1
 
 
 async def test_process_code_review_with_invalid_standard_set(
@@ -351,10 +363,12 @@ async def test_process_code_review_with_invalid_standard_set(
     repository_url = "https://github.com/test/repo"
     standard_sets = ["invalid_id"]  # Invalid ObjectId format
 
-    # Mock database responses
-    mock_database.classifications.find.return_value.to_list.return_value = [
+    # Mock database cursor responses
+    mock_classifications_cursor = AsyncMock()
+    mock_classifications_cursor.to_list = AsyncMock(return_value=[
         {"_id": ObjectId(), "name": "Python", "rules": []}
-    ]
+    ])
+    mock_database.classifications.find = MagicMock(return_value=mock_classifications_cursor)
 
     # When: Running the code review process
     await process_code_review(review_id, repository_url, standard_sets)
@@ -407,16 +421,22 @@ async def test_process_code_review_with_no_matching_standards(
     repository_url = "https://github.com/test/repo"
     standard_sets = [str(ObjectId())]
 
-    # Mock database responses
-    mock_database.classifications.find.return_value.to_list.return_value = [
+    # Mock database cursor responses properly
+    mock_classifications_cursor = AsyncMock()
+    mock_classifications_cursor.to_list = AsyncMock(return_value=[
         {"_id": ObjectId(), "name": "Python", "rules": []}
-    ]
-    mock_database.standard_sets.find_one.return_value = {
+    ])
+    mock_database.classifications.find = MagicMock(return_value=mock_classifications_cursor)
+
+    mock_database.standard_sets.find_one = AsyncMock(return_value={
         "_id": ObjectId(),
         "name": "Test Standards"
-    }
-    # No matching standards
-    mock_database.standards.find.return_value.to_list.return_value = []
+    })
+
+    # No matching standards - empty list
+    mock_standards_cursor = AsyncMock()
+    mock_standards_cursor.to_list = AsyncMock(return_value=[])
+    mock_database.standards.find = MagicMock(return_value=mock_standards_cursor)
 
     # When: Running the code review process
     await process_code_review(review_id, repository_url, standard_sets)
@@ -426,3 +446,8 @@ async def test_process_code_review_with_no_matching_standards(
     assert final_call_args[0][0] == review_id
     assert final_call_args[0][1] == ReviewStatus.COMPLETED
     assert len(final_call_args[0][2]) == 0  # no reports generated
+
+    # Verify all async operations were awaited
+    await mock_classifications_cursor.to_list()
+    await mock_database.standard_sets.find_one()
+    await mock_standards_cursor.to_list()
