@@ -23,26 +23,29 @@ WORKDIR /app
 # Create a non-privileged user that the app will run under.
 ARG UID=10001
 RUN adduser \
-  --disabled-password \
-  --gecos "" \
-  --home "/nonexistent" \
-  --shell "/sbin/nologin" \
-  --no-create-home \
-  --uid "${UID}" \
-  appuser
+    --disabled-password \
+    --gecos "" \
+    --home "/home/appuser" \
+    --shell "/sbin/nologin" \
+    --uid "${UID}" \
+    appuser
 
-# Create logs directory with proper permissions before switching user
-RUN mkdir -p /app/logs && chmod 777 /app/logs
+# Create required directories with proper permissions
+RUN mkdir -p /app/logs && chmod 777 /app/logs && \
+    mkdir -p /app/data && chmod 744 /app/data && \
+    mkdir -p /home/appuser/.config && \
+    mkdir -p /home/appuser/.config/git && \
+    touch /home/appuser/.gitconfig && \
+    chown -R appuser:appuser /home/appuser
 
-# Create data directory with correct permissions for processing of temporary files
-RUN mkdir -p /app/data && \
-    chown -R appuser:appuser /app/data && \
-    chmod 744 /app/data
+# Configure git
+RUN git config --system http.sslVerify false && \
+    git config --system safe.directory /app
 
 # Download dependencies as a separate step to take advantage of Docker's caching.
 RUN --mount=type=cache,target=/root/.cache/pip \
-  --mount=type=bind,source=requirements.txt,target=requirements.txt \
-  python -m pip install -r requirements.txt
+    --mount=type=bind,source=requirements.txt,target=requirements.txt \
+    python -m pip install -r requirements.txt
 
 # Switch to the non-privileged user to run the application.
 USER appuser
