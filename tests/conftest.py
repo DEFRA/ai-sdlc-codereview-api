@@ -21,9 +21,9 @@ async def mock_database_setup():
         collection_mock.database = mock_db
         setattr(mock_db, col, collection_mock)
 
-    with patch("app.main.init_database", return_value=mock_db), \
-            patch("app.database.database_utils.client", new=MagicMock()), \
+    with patch("app.database.database_utils.initialize_database", return_value=None), \
             patch("app.database.database_utils.get_database", return_value=mock_db), \
+            patch("app.database.database_utils.client", new=MagicMock()), \
             patch("motor.motor_asyncio.AsyncIOMotorClient", return_value=MagicMock()):
 
         app.state.db = mock_db

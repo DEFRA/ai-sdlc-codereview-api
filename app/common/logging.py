@@ -24,14 +24,14 @@ def configure_logging() -> None:
     is_local = os.environ.get("LOG_TYPE", "").lower() == "local"
     standard_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     
+    # Reduce MongoDB noise
+    config["loggers"]["pymongo"] = {
+        "level": "WARNING",
+        "handlers": ["default"],
+        "propagate": False
+    }
+    
     if is_local:
-        # Reduce MongoDB noise
-        config["loggers"]["pymongo"] = {
-            "level": "WARNING",
-            "handlers": ["default"],
-            "propagate": False
-        }
-
         # Use standard format for local development
         config["formatters"]["default"]["format"] = standard_format
         config["formatters"]["access"]["format"] = standard_format
