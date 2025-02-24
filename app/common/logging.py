@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 import yaml
 from app.config.config import settings
+import sys
+from typing import Optional
 
 def configure_logging() -> None:
     """Configure logging for the application.
@@ -55,6 +57,13 @@ def configure_logging() -> None:
     # Apply configuration
     logging.config.dictConfig(config)
 
-def get_logger(name: str) -> logging.Logger:
-    """Get a logger instance for the given name."""
+def get_logger(name: Optional[str] = None) -> logging.Logger:
+    """Get a logger instance.
+    
+    Args:
+        name: Logger name. If None, returns the root logger.
+    
+    Returns:
+        logging.Logger: Configured logger instance
+    """
     return logging.getLogger(name)

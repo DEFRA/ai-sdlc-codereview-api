@@ -213,17 +213,37 @@ async def init_database():
             "standards": standards_schema
         }
 
-        for collection_name, schema in collections_config.items():
-            if collection_name not in await db.list_collection_names():
-                await db.create_collection(
-                    collection_name,
-                    validator=schema
-                )
-            else:
-                await db.command({
-                    "collMod": collection_name,
-                    "validator": schema
-                })
+        try:
+            for collection_name, schema in collections_config.items():
+                if collection_name not in await db.list_collection_names():
+                    try:
+                        await db.create_collection(
+                            collection_name,
+                            validator=schema
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to create collection {collection_name} with schema validation. "
+                            f"Creating without validation. Error: {str(e)}"
+                        )
+                        await db.create_collection(collection_name)
+                else:
+                    try:
+                        await db.command({
+                            "collMod": collection_name,
+                            "validator": schema
+                        })
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to update schema validation for {collection_name}. "
+                            f"Continuing without validation. Error: {str(e)}"
+                        )
+        except Exception as e:
+            logger.warning(
+                "Failed to set up schema validation. "
+                "Application will continue without schema validation. "
+                f"Error: {str(e)}"
+            )
                 
         return db
         
