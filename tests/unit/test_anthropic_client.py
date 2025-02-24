@@ -6,7 +6,9 @@ from app.utils.anthropic_client import (
     AnthropicClient, 
     DirectAnthropicClient,
     BedrockAnthropicClient,
-    USE_BEDROCK
+    USE_BEDROCK,
+    AnthropicClientProtocol,
+    BaseAnthropicClient
 )
 
 from app.config.config import settings
@@ -153,4 +155,88 @@ class TestAnthropicClient:
                 await AnthropicClient.create_message(
                     prompt="Test prompt",
                     system_prompt="Test system prompt"
-                ) 
+                )
+
+# Test Protocol Implementation
+class MockAnthropicClient(AnthropicClientProtocol):
+    """Mock implementation of AnthropicClientProtocol."""
+    async def messages(self):
+        """Test implementation of messages method."""
+        return AsyncMock()
+
+async def test_anthropic_client_protocol():
+    """Test AnthropicClientProtocol implementation."""
+    # Given: A class implementing the protocol
+    client = MockAnthropicClient()
+    
+    # When/Then: Messages method exists and returns
+    messages = await client.messages()
+    assert messages is not None
+
+
+# Test Base Client Instance
+async def test_base_anthropic_client_instance():
+    """Test BaseAnthropicClient instance initialization."""
+    # Given: A fresh BaseAnthropicClient subclass
+    class TestClient(BaseAnthropicClient):
+        @classmethod
+        def get_client(cls):
+            if cls._instance is None:  # Add instance initialization
+                cls._instance = AsyncMock()
+            return cls._instance
+    
+    # When: Accessing instance before initialization
+    assert TestClient._instance is None
+    
+    # When: Getting client
+    client = TestClient.get_client()
+    
+    # Then: Instance is set
+    assert TestClient._instance is not None
+    assert isinstance(client, AsyncMock)
+
+
+async def test_create_message_response_error():
+    """Test error handling when response structure is invalid."""
+    # Given: A mocked client with invalid response structure
+    mock_response = MagicMock()
+    mock_response.content = []  # Empty content to trigger IndexError
+    
+    mock_messages = AsyncMock()
+    mock_messages.create = AsyncMock(return_value=mock_response)
+    
+    mock_client = AsyncMock()
+    mock_client.messages = mock_messages
+    
+    with patch.object(DirectAnthropicClient, 'get_client', return_value=mock_client):
+        # When: Creating message
+        result = await AnthropicClient.create_message(
+            prompt="Test prompt",
+            system_prompt="Test system prompt"
+        )
+        
+        # Then: Should handle error and return empty string
+        assert result == ""
+
+
+async def test_create_message_attribute_error():
+    """Test error handling when response lacks required attributes."""
+    # Given: A mocked client with response missing attributes
+    mock_response = MagicMock()
+    delattr(mock_response, 'content')  # Remove content attribute to trigger AttributeError
+    
+    mock_messages = AsyncMock()
+    mock_messages.create = AsyncMock(return_value=mock_response)
+    
+    mock_client = AsyncMock()
+    mock_client.messages = mock_messages
+    
+    with patch.object(DirectAnthropicClient, 'get_client', return_value=mock_client):
+        # When: Creating message
+        result = await AnthropicClient.create_message(
+            prompt="Test prompt",
+            system_prompt="Test system prompt"
+        )
+        
+        # Then: Should handle error and return empty string
+        assert result == "" 
