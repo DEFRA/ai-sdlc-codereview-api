@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 import yaml
 from app.config.config import settings
+import sys
+from typing import Optional
 
 def configure_logging() -> None:
     """Configure logging for the application.
@@ -24,14 +26,14 @@ def configure_logging() -> None:
     is_local = os.environ.get("LOG_TYPE", "").lower() == "local"
     standard_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     
+    # Reduce MongoDB noise
+    config["loggers"]["pymongo"] = {
+        "level": "WARNING",
+        "handlers": ["default"],
+        "propagate": False
+    }
+    
     if is_local:
-        # Reduce MongoDB noise
-        config["loggers"]["pymongo"] = {
-            "level": "WARNING",
-            "handlers": ["default"],
-            "propagate": False
-        }
-
         # Use standard format for local development
         config["formatters"]["default"]["format"] = standard_format
         config["formatters"]["access"]["format"] = standard_format
@@ -55,6 +57,13 @@ def configure_logging() -> None:
     # Apply configuration
     logging.config.dictConfig(config)
 
-def get_logger(name: str) -> logging.Logger:
-    """Get a logger instance for the given name."""
+def get_logger(name: Optional[str] = None) -> logging.Logger:
+    """Get a logger instance.
+    
+    Args:
+        name: Logger name. If None, returns the root logger.
+    
+    Returns:
+        logging.Logger: Configured logger instance
+    """
     return logging.getLogger(name)

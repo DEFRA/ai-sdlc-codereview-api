@@ -8,7 +8,7 @@ from logging import getLogger
 from aws_embedded_metrics.config import get_config
 from app.api.v1 import classifications, code_reviews, standard_sets
 from app.config.config import settings
-from app.database.database_init import init_database
+from app.database.database_utils import get_database, initialize_database
 from app.common.logging import configure_logging, get_logger
 
 Confg = get_config()
@@ -20,15 +20,15 @@ logger = get_logger(__name__)
 async def lifespan(app: FastAPI):
     """Lifespan context manager for database connection."""
     try:
-        # Startup: create database connection
-        app.state.db = await init_database()
-
+        # Initialize database schema only during startup
+        await initialize_database()
+        app.state.db = await get_database()
+        
         logger.info(f"EMF Environment: {Confg.environment}")
         logger.info(f"EMF Agent Endpoint: {Confg.agent_endpoint}")
         logger.info(f"EMF Service Name: {Confg.service_name}")
         yield
     finally:
-        # Shutdown: close database connection
         if hasattr(app.state, 'db') and hasattr(app.state.db, 'client'):
             app.state.db.client.close()
 
