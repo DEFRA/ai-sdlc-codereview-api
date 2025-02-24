@@ -19,7 +19,7 @@ class MongoJSONEncoder(json.JSONEncoder):
 def get_database():
     # Use localhost when running script locally, mongodb when running in container
     client = MongoClient("mongodb://localhost:27017/")
-    database = os.getenv("MONGO_DATABASE", "code_reviews")
+    database = os.getenv("MONGO_DATABASE", "ai-sdlc-codereview-api")
     return client[database]
 
 def dump_database(test_data_dir: str = "test_data"):

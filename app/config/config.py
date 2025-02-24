@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     LLM_TESTING_STANDARDS_FILES: str = ""
     
     # MongoDB Docker settings (optional with defaults)
-    MONGO_DATABASE: str = "code_reviews"
+    MONGO_DATABASE: str = "ai-sdlc-codereview-api"
     
     # @field_validator("AWS_ACCESS_KEY", "AWS_SECRET_KEY", "AWS_REGION", "AWS_BEDROCK_MODEL")
     # @classmethod

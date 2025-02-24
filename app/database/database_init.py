@@ -202,7 +202,7 @@ async def init_database():
     try:
         # Initialize MongoDB client and test connection
         client = AsyncIOMotorClient(settings.MONGO_URI, **connection_options)
-        db = client.code_reviews
+        db = client["ai-sdlc-codereview-api"]
         await client.admin.command('ping')
         
         # Create collections with schema validation
