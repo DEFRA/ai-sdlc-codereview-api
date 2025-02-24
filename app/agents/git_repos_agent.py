@@ -26,6 +26,14 @@ EXCLUDED_FILES = {
 # Directories to exclude
 EXCLUDED_DIRS = {'.git', 'node_modules', '__pycache__', '.venv', 'venv'}
 
+def configure_git_proxy():
+    """Configure git proxy settings from environment variables."""
+    if settings.has_proxy_config:
+        logger.debug("Configuring git proxy")
+        if settings.CDP_HTTPS_PROXY:
+            git.Git().config("--global", "https.proxy", settings.CDP_HTTPS_PROXY)
+        if settings.CDP_HTTP_PROXY:
+            git.Git().config("--global", "http.proxy", settings.CDP_HTTP_PROXY)
 
 async def flatten_repository(repo_path: Path, output_file: Path) -> None:
     """Flatten a repository's files into a single text file."""
@@ -61,6 +69,9 @@ async def clone_repo(repo_url: str, target_dir: Path) -> None:
         import shutil
         shutil.rmtree(target_dir)
 
+    # Configure proxy before git operations
+    configure_git_proxy()
+    
     git.Repo.clone_from(repo_url, str(target_dir))
 
 

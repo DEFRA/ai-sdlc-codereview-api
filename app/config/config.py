@@ -29,6 +29,15 @@ class Settings(BaseSettings):
     # MongoDB Docker settings (optional with defaults)
     MONGO_DATABASE: str = "ai-sdlc-codereview-api"
     
+    # Git proxy settings
+    CDP_HTTP_PROXY: Optional[str] = None
+    CDP_HTTPS_PROXY: Optional[str] = None
+    
+    @property
+    def has_proxy_config(self) -> bool:
+        """Check if proxy settings are configured."""
+        return bool(self.CDP_HTTP_PROXY or self.CDP_HTTPS_PROXY)
+    
     # @field_validator("AWS_ACCESS_KEY", "AWS_SECRET_KEY", "AWS_REGION", "AWS_BEDROCK_MODEL")
     # @classmethod
     # def validate_aws_settings(cls, v: str, info):
