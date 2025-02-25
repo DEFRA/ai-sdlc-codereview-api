@@ -12,12 +12,6 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # the application crashes without emitting any logs due to buffering.
 ENV PYTHONUNBUFFERED=1
 
-# Add curl and git to template.
-RUN apt-get update && apt-get install -y \
-    curl \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
 # Create a non-privileged user that the app will run under.
@@ -30,28 +24,33 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-# Create required directories with proper permissions
-RUN mkdir -p /app/logs && chmod 777 /app/logs && \
-    mkdir -p /app/data && chmod 744 /app/data && \
-    mkdir -p /home/appuser/.config && \
-    mkdir -p /home/appuser/.config/git && \
-    touch /home/appuser/.gitconfig && \
-    chown -R appuser:appuser /home/appuser
+# Install only the necessary packages and clean up in the same layer to reduce image size
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Configure git
-RUN git config --system http.sslVerify false && \
-    git config --system safe.directory /app
+# Create required directories with proper permissions
+RUN mkdir -p /app/logs /app/data/codebase /home/appuser/.config/git \
+    && touch /home/appuser/.gitconfig \
+    && chown -R appuser:appuser /home/appuser /app/logs /app/data \
+    && chmod 755 /app/logs /app/data /app/data/codebase
+
+# Configure git with secure defaults
+RUN git config --system http.sslVerify true \
+    && git config --system safe.directory /app
 
 # Download dependencies as a separate step to take advantage of Docker's caching.
+COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=bind,source=requirements.txt,target=requirements.txt \
-    python -m pip install -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy the source code into the container.
+COPY --chown=appuser:appuser . .
 
 # Switch to the non-privileged user to run the application.
 USER appuser
-
-# Copy the source code into the container.
-COPY . .
 
 # Expose the port that the application listens on.
 EXPOSE 8085

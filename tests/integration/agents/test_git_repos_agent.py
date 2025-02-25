@@ -84,17 +84,21 @@ def mock_git_repo():
 
 
 @pytest.fixture
-def cleanup_output():
-    """Fixture to cleanup output files after test."""
-    yield
-    # This code runs after the test
-    codebase_dir = Path("data") / "codebase"
-    if codebase_dir.exists():
-        shutil.rmtree(codebase_dir)
+def patch_data_paths():
+    """Patch the data paths to use relative paths for testing."""
+    with patch('app.agents.git_repos_agent.DATA_DIR', Path("data")), \
+         patch('app.agents.git_repos_agent.CODEBASE_DIR', Path("data/codebase")):
+        # Create the directory if it doesn't exist
+        codebase_dir = Path("data/codebase")
+        codebase_dir.mkdir(parents=True, exist_ok=True)
+        yield
+        # Clean up after test
+        if codebase_dir.exists():
+            shutil.rmtree(codebase_dir.parent)
 
 
 @pytest.mark.asyncio
-async def test_process_repositories_success(cleanup_output):
+async def test_process_repositories_success(patch_data_paths):
     """Test processing a repository successfully."""
     # Given: A repository URL
     with patch('git.Repo.clone_from') as mock_clone:
@@ -136,7 +140,7 @@ async def test_process_repositories_success(cleanup_output):
 
 
 @pytest.mark.asyncio
-async def test_process_repositories_error_handling():
+async def test_process_repositories_error_handling(patch_data_paths):
     """Test error handling when processing repositories."""
     # Given: A repository URL that will cause an error
     with patch('git.Repo.clone_from', side_effect=git.GitCommandError("clone", "Connection failed")):

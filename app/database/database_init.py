@@ -1,11 +1,11 @@
 """Database initialization module."""
 import os
 from datetime import datetime, UTC
-from motor.motor_asyncio import AsyncIOMotorClient
 from app.config.config import settings
 from app.models.code_review import ReviewStatus
 from app.common.ssl_context import get_mongodb_ssl_options
 from app.common.logging import get_logger
+from app.database.connection import create_client
 
 logger = get_logger(__name__)
 
@@ -181,28 +181,12 @@ async def init_database():
     Returns:
         AsyncIOMotorDatabase: Initialized database instance
     """
-    # Base MongoDB connection options
-    connection_options = {
-        "retryWrites": True,
-        "readPreference": "primary"
-    }
-    
-    # Add AWS auth mechanism only if not in local development
-    if os.getenv('ENABLE_SECURE_CONTEXT', '') == 'true':
-        connection_options["authMechanism"] = "MONGODB-AWS"
-    
     # Configure SSL/TLS if enabled
-    ssl_options, temp_ca_file = get_mongodb_ssl_options()
-    if ssl_options:
-        logger.info("Using custom SSL configuration with provided certificates")
-        connection_options.update(ssl_options)
-    else:
-        logger.info("Using default SSL configuration")
+    _, temp_ca_file = get_mongodb_ssl_options()
     
     try:
         # Initialize MongoDB client and test connection
-        client = AsyncIOMotorClient(settings.MONGO_URI, **connection_options)
-        db = client["ai-sdlc-codereview-api"]
+        client, db = create_client()
         await client.admin.command('ping')
         
         # Create collections with schema validation

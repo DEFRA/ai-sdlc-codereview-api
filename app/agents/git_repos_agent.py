@@ -10,7 +10,7 @@ import tempfile
 logger = get_logger(__name__)
 
 STANDARDS_REPO = "https://github.com/DEFRA/software-development-standards"
-DATA_DIR = Path("data")
+DATA_DIR = Path("/app/data")
 CODEBASE_DIR = DATA_DIR / "codebase"
 
 # Files to exclude when flattening

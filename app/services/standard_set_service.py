@@ -6,6 +6,7 @@ from app.models.standard_set import StandardSet, StandardSetCreate, StandardSetW
 from app.repositories.standard_set_repo import StandardSetRepository
 from app.common.logging import get_logger
 from app.agents.standards_agent import process_standard_set
+from app.utils.process_utils import run_async_in_process
 
 logger = get_logger(__name__)
 
@@ -52,5 +53,4 @@ class StandardSetService:
     @staticmethod
     def _run_agent_process_sync(standard_set_id: str, repository_url: str):
         """Run the agent process synchronously."""
-        import asyncio
-        asyncio.run(process_standard_set(standard_set_id, repository_url)) 
+        run_async_in_process(process_standard_set, standard_set_id, repository_url) 

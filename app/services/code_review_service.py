@@ -7,7 +7,6 @@ This service orchestrates the code review process by:
 - Providing access to review results
 """
 from typing import List, Optional
-import asyncio
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from multiprocessing import Process
 from app.models.code_review import CodeReview, CodeReviewCreate, ReviewStatus, CodeReviewList
@@ -15,6 +14,7 @@ from app.repositories.code_review_repo import CodeReviewRepository
 from app.agents.code_reviews_agent import process_code_review
 from app.common.logging import get_logger
 from app.utils.id_validation import ensure_object_id
+from app.utils.process_utils import run_async_in_process
 
 logger = get_logger(__name__)
 
@@ -27,8 +27,7 @@ def _run_in_process(review_id: str, repository_url: str, standard_sets: List[str
         repository_url: URL of the repository to analyze
         standard_sets: List of standard set IDs to check against
     """
-    asyncio.run(process_code_review(
-        review_id, repository_url, standard_sets))
+    run_async_in_process(process_code_review, review_id, repository_url, standard_sets)
 
 
 class CodeReviewService:
