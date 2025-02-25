@@ -48,16 +48,7 @@ class BedrockAnthropicClient(BaseAnthropicClient):
     @classmethod
     def get_client(cls) -> AsyncAnthropicBedrock:
         if cls._instance is None:
-            if not all([settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, settings.AWS_REGION]):
-                logger.error("AWS credentials not properly configured")
-                raise ValueError("AWS credentials (AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_REGION) must be set for Bedrock")
-                
-            logger.debug("Creating new Bedrock Anthropic client instance")
-            cls._instance = AsyncAnthropicBedrock(
-                aws_access_key=settings.AWS_ACCESS_KEY,
-                aws_secret_key=settings.AWS_SECRET_KEY,
-                aws_region=settings.AWS_REGION
-            )
+            cls._instance = AsyncAnthropicBedrock()
             
         return cls._instance
 

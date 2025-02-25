@@ -56,19 +56,6 @@ class TestAnthropicClient:
                 assert isinstance(client, AsyncAnthropicBedrock)
                 assert isinstance(AnthropicClient._instance, BedrockAnthropicClient)
 
-    async def test_get_client_raises_error_without_credentials(self):
-        """Test error handling when credentials are missing."""
-        # Given: No credentials in settings
-        with patch('app.utils.anthropic_client.USE_BEDROCK', True):
-            with patch('app.utils.anthropic_client.settings') as mock_settings:
-                mock_settings.AWS_ACCESS_KEY = None
-                mock_settings.AWS_SECRET_KEY = None
-                mock_settings.AWS_REGION = None
-
-                # When/Then: Getting client raises error
-                with pytest.raises(ValueError, match="AWS credentials .* must be set for Bedrock"):
-                    AnthropicClient.get_client()
-
     async def test_direct_client_raises_error_without_api_key(self):
         """Test error handling when API key is missing for direct client."""
         # Given: No API key in settings

@@ -38,18 +38,6 @@ class Settings(BaseSettings):
         """Check if proxy settings are configured."""
         return bool(self.CDP_HTTP_PROXY or self.CDP_HTTPS_PROXY)
     
-    # @field_validator("AWS_ACCESS_KEY", "AWS_SECRET_KEY", "AWS_REGION", "AWS_BEDROCK_MODEL")
-    # @classmethod
-    # def validate_aws_settings(cls, v: str, info):
-    #     """Validate AWS settings are provided when using Bedrock."""
-    #     values = info.data
-    #     if values.get("ANTHROPIC_BEDROCK", "").lower() == "true" and not v:
-    #         raise ValueError(
-    #             f"{info.field_name} must be set when ANTHROPIC_BEDROCK=true. "
-    #             "Please check your .env file and ensure all AWS credentials are configured."
-    #         )
-    #     return v
-    
     model_config = ConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
