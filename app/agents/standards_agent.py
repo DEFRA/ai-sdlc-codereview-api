@@ -56,7 +56,7 @@ async def process_standard_set(standard_set_id: str, repository_url: str):
     """Process a standard set in the background."""
     temp_dir = None
     try:
-        logger.debug(
+        logger.info(
             f"Starting to process standard set {standard_set_id} from repository {repository_url}")
 
         # Get database connection
@@ -206,7 +206,7 @@ async def process_standards(
     classifications: List[Classification]
 ):
     """Process standards in the repository."""
-    logger.debug(f"Starting to process standards for set {standard_set_id}")
+    logger.info(f"Starting to process standards for set {standard_set_id}")
 
     try:
         # Get standards collection
