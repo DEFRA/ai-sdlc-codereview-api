@@ -59,6 +59,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 ignore = [
     "E501",  # line too long, handled by formatter
     "B008",  # do not perform function calls in argument defaults
+    "COM812", # missing trailing comma, conflicts with formatter
 ]
 
 # Ignore `E402` (import violations) in all `__init__.py` files
