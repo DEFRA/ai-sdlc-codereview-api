@@ -5,6 +5,7 @@ A Python FastAPI service that provides endpoints for creating and retrieving AI-
 - [ai-sdlc-codereview-api](#ai-sdlc-codereview-api)
   - [Requirements](#requirements)
     - [Python](#python)
+    - [Linting and Formatting](#linting-and-formatting)
     - [Docker](#docker)
   - [Local development](#local-development)
     - [Setup & Configuration](#setup--configuration)
@@ -45,6 +46,58 @@ This and all other runtime python libraries must reside in `requirements.txt`
 
 Other non-runtime dependencies used for dev & test must reside in `requirements-dev.txt`
 
+### Linting and Formatting
+
+This project uses [Ruff](https://github.com/astral-sh/ruff) for linting and formatting Python code.
+
+#### Running Ruff
+
+To run Ruff from the command line:
+
+```bash
+# Run linting with auto-fix
+ruff check . --fix
+
+# Run formatting
+ruff format .
+```
+
+#### VS Code Configuration
+
+For the best development experience, configure VS Code to use Ruff:
+
+1. Install the [Ruff extension](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff) for VS Code
+2. Configure your VS Code settings (`.vscode/settings.json`):
+
+```json
+{
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.ruff": "explicit",
+        "source.organizeImports.ruff": "explicit"
+    },
+    "ruff.lint.run": "onSave",
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit"
+        }
+    }
+}
+```
+
+This configuration will:
+
+- Format your code with Ruff when you save a file
+- Fix linting issues automatically when possible
+- Organize imports according to isort rules
+
+#### Ruff Configuration
+
+Ruff is configured in the `.ruff.toml` file
+
 ### Docker
 
 This repository uses Docker throughput its lifecycle i.e. both for local development and the environments. A benefit of this is that environment variables & secrets are managed consistently throughout the lifecycle
@@ -60,6 +113,7 @@ Follow the convention below for local environment variables and secrets in local
 **Environment variables:** `compose/aws.env`.
 
 **Secrets:** `compose/secrets.env`. You need to create this, as it's excluded from version control. Required secrets include:
+
 - `ANTHROPIC_API_KEY`: If using standard Anthropic, not bedrock
 - `MONGO_URI`: MongoDB connection string (if different from default)
 
