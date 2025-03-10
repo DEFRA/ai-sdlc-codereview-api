@@ -5,6 +5,7 @@ A Python FastAPI service that provides endpoints for creating and retrieving AI-
 - [ai-sdlc-codereview-api](#ai-sdlc-codereview-api)
   - [Requirements](#requirements)
     - [Python](#python)
+    - [Linting and Formatting](#linting-and-formatting)
     - [Docker](#docker)
   - [Local development](#local-development)
     - [Setup & Configuration](#setup--configuration)
@@ -33,10 +34,13 @@ python -m venv .venv
 source .venv/bin/activate
 
 # update pip
-python -m pip install --upgrade pip 
+python -m pip install --upgrade pip
 
 # install the dependencies
 pip install -r requirements-dev.txt
+
+# install the pre-commit hooks
+pre-commit install
 ```
 
 This service uses the [`Fast API`](https://fastapi.tiangolo.com/) Python API framework with MongoDB for data storage and Anthropic's Claude for AI-powered code analysis.
@@ -44,6 +48,80 @@ This service uses the [`Fast API`](https://fastapi.tiangolo.com/) Python API fra
 This and all other runtime python libraries must reside in `requirements.txt`
 
 Other non-runtime dependencies used for dev & test must reside in `requirements-dev.txt`
+
+### Linting and Formatting
+
+This project uses [Ruff](https://github.com/astral-sh/ruff) for linting and formatting Python code.
+
+#### Running Ruff
+
+To run Ruff from the command line:
+
+```bash
+# Run linting with auto-fix
+ruff check . --fix
+
+# Run formatting
+ruff format .
+```
+
+#### Pre-commit Hooks
+
+This project uses [pre-commit](https://pre-commit.com/) to run linting and formatting checks automatically before each commit.
+
+The pre-commit configuration is defined in `.pre-commit-config.yaml`
+
+To set up pre-commit hooks:
+
+```bash
+# Set up the git hooks
+pre-commit install
+
+# Alternatively, use the provided setup script
+python scripts/setup_hooks.py
+```
+
+To run the hooks manually on all files:
+
+```bash
+pre-commit run --all-files
+```
+
+#### VS Code Configuration
+
+For the best development experience, configure VS Code to use Ruff:
+
+1. Install the [Ruff extension](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff) for VS Code
+2. Configure your VS Code settings (`.vscode/settings.json`):
+
+```json
+{
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.ruff": "explicit",
+        "source.organizeImports.ruff": "explicit"
+    },
+    "ruff.lint.run": "onSave",
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit"
+        }
+    }
+}
+```
+
+This configuration will:
+
+- Format your code with Ruff when you save a file
+- Fix linting issues automatically when possible
+- Organize imports according to isort rules
+
+#### Ruff Configuration
+
+Ruff is configured in the `.ruff.toml` file
 
 ### Docker
 
@@ -60,6 +138,7 @@ Follow the convention below for local environment variables and secrets in local
 **Environment variables:** `compose/aws.env`.
 
 **Secrets:** `compose/secrets.env`. You need to create this, as it's excluded from version control. Required secrets include:
+
 - `ANTHROPIC_API_KEY`: If using standard Anthropic, not bedrock
 - `MONGO_URI`: MongoDB connection string (if different from default)
 
@@ -72,7 +151,7 @@ The app can be run locally using Docker compose.  This template contains a local
 - Localstack
 - MongoDB
 - This service
-  
+
 To run the application in development mode:
 
 ```bash

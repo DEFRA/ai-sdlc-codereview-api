@@ -168,3 +168,4 @@ cython_debug/
 
 # Secrets
 compose/secrets.env
+.DS_Store
