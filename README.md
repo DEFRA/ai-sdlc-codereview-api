@@ -34,10 +34,13 @@ python -m venv .venv
 source .venv/bin/activate
 
 # update pip
-python -m pip install --upgrade pip 
+python -m pip install --upgrade pip
 
 # install the dependencies
 pip install -r requirements-dev.txt
+
+# install the pre-commit hooks
+pre-commit install
 ```
 
 This service uses the [`Fast API`](https://fastapi.tiangolo.com/) Python API framework with MongoDB for data storage and Anthropic's Claude for AI-powered code analysis.
@@ -60,6 +63,28 @@ ruff check . --fix
 
 # Run formatting
 ruff format .
+```
+
+#### Pre-commit Hooks
+
+This project uses [pre-commit](https://pre-commit.com/) to run linting and formatting checks automatically before each commit.
+
+The pre-commit configuration is defined in `.pre-commit-config.yaml`
+
+To set up pre-commit hooks:
+
+```bash
+# Set up the git hooks
+pre-commit install
+
+# Alternatively, use the provided setup script
+python scripts/setup_hooks.py
+```
+
+To run the hooks manually on all files:
+
+```bash
+pre-commit run --all-files
 ```
 
 #### VS Code Configuration
@@ -126,7 +151,7 @@ The app can be run locally using Docker compose.  This template contains a local
 - Localstack
 - MongoDB
 - This service
-  
+
 To run the application in development mode:
 
 ```bash
